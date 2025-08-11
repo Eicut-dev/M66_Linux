@@ -1,0 +1,87 @@
+##==========================================================================
+#                   Quectel OpenCPU  (Linux version)
+#
+#              Adapted from original Windows Makefile
+#==========================================================================
+#-------------------------------------------------------------------------------
+# Configure environment path
+#-------------------------------------------------------------------------------
+BIN_DIR  = build/gcc
+OBJ_DIR  = $(BIN_DIR)/obj
+BUILDLOG = $(BIN_DIR)/build.log
+ENV_PATH = $(strip $(GCC_INSTALL_PATH))/bin
+ENV_INC  = $(strip $(GCC_INSTALL_PATH))/arm-none-eabi/include
+#ENV_LIB_EABI = $(strip $(GCC_INSTALL_PATH))/arm-none-eabi/lib/thumb
+#ENV_LIB_GCC  = $(strip $(GCC_INSTALL_PATH))/lib/gcc/arm-none-eabi/$(GCC_VERSION)/thumb
+ENV_LIB_EABI = /usr/lib/arm-none-eabi/lib
+ENV_LIB_GCC  = /usr/lib/gcc/arm-none-eabi/12.2.1
+
+#-------------------------------------------------------------------------------
+# Configure compiling utilities (Linux native tools)
+#-------------------------------------------------------------------------------
+CC      = $(ENV_PATH)/arm-none-eabi-gcc
+LD      = $(ENV_PATH)/arm-none-eabi-gcc #arm-none-eabi-ld
+OBJCOPY = $(ENV_PATH)/arm-none-eabi-objcopy
+RM      = rm -f
+HEADGEN = make/GFH_Generator   # If you have a Linux build of this, else run with Wine
+MAKE    = make
+
+#-------------------------------------------------------------------------------
+# Configure standard reference library
+#-------------------------------------------------------------------------------
+#STDLIB = $(ENV_LIB_EABI)/libm.a $(ENV_LIB_EABI)/libc.a $(ENV_LIB_EABI)/libcs3.a $(ENV_LIB_GCC)/libgcc.a
+STDLIB = -lm -lc -lgcc
+
+#-------------------------------------------------------------------------------
+# Configure compiling options
+#-------------------------------------------------------------------------------
+SFLAGS  = -c -mlong-calls -march=armv5te -mlittle-endian -mthumb-interwork -mfpu=vfp -mfloat-abi=soft -Wall -Wstrict-prototypes -Os
+CFLAGS  = -c -mlong-calls -march=armv5te -mlittle-endian -mthumb-interwork -mfpu=vfp -mfloat-abi=soft -Wall -Wstrict-prototypes -std=c99 -Os \
+          -ffunction-sections -pipe -ftracer -fivopts
+C_DEF   = -D MT6252 -D __OCPU_COMPILER_GCC__
+LDFLAGS = -Rbuild -X -Wl,--gc-sections -T libs/gcc/linkscript.ld -nostartfiles
+OBJCOPYFLAGS =
+
+#-------------------------------------------------------------------------------
+# Definition for compiling procedure
+#-------------------------------------------------------------------------------
+new: CreateDir $(BIN_DIR)/$(TARGET).bin
+	 @echo "Skipping GFH_Generator step."
+# 	@$(HEADGEN) $(BIN_DIR)/$(TARGET).bin
+
+$(BIN_DIR)/$(TARGET).bin: $(BIN_DIR)/$(TARGET).elf
+	@$(OBJCOPY) $(OBJCOPYFLAGS) -O binary $< $@
+	@echo ----------------------------------------------------
+	@echo - GCC Compiling Finished Successfully.
+	@echo - The target image is in the '$(BIN_DIR)' directory.
+	@echo ----------------------------------------------------
+
+$(BIN_DIR)/$(TARGET).elf: $(OBJS)
+	@$(LD) $(LDFLAGS) -Wl,-Map=$(BIN_DIR)/$(TARGET).map -o $@ $(OBJS) $(USERLIB) $(STDLIB)
+
+$(OBJ_DIR)/%.o: %.S
+	@echo - Building  $@ 
+	@$(CC) $(C_DEF) $(SFLAGS) -o $@ $<
+
+$(OBJ_DIR)/%.o: %.c
+	@echo - Building  $@ 
+	@$(CC) $(C_DEF) $(C_PREDEF) $(CFLAGS) $(INCS) -o $@ $<
+
+CreateDir:
+	@$(RM) $(BIN_DIR)/$(TARGET).bin
+	@mkdir -p $(BIN_DIR) $(OBJ_DIR)
+	@for dir in $(SRC_DIRS); do \
+		mkdir -p $(OBJ_DIR)/$$dir; \
+	done
+
+clean:
+	@$(RM) $(OBJS) $(BUILDLOG) \
+	    $(BIN_DIR)/$(TARGET).map \
+		$(BIN_DIR)/$(TARGET).bin \
+		$(BIN_DIR)/$(TARGET).elf 
+	@echo -------------------
+	@echo clean finished.
+	@echo -------------------
+
+.PHONY: all clean CreateDir
+

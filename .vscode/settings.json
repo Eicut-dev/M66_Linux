@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "custom_feature_def.h": "c",
+        "ril_audio.h": "c",
+        "ql_memory.h": "c"
+    }
+}
